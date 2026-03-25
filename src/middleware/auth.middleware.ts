@@ -41,3 +41,6 @@ export const authorize = (...roles: string[]) =>
     }
     next();
   };
+
+// Alias — used in admin.routes.ts
+export const requireRole = authorize;

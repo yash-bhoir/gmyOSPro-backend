@@ -1,47 +1,68 @@
-import 'express-async-errors';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import compression from 'compression';
-import { env } from './config/env';
-import routes from './routes';
-import { globalLimiter } from './middleware/rateLimiter';
+import rateLimit from 'express-rate-limit';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
+import router from './routes';
+import { logger } from './config/logger';
 
 const app = express();
 
-// Security headers
+// ── Security ──
 app.use(helmet());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 
-// CORS
-app.use(
-  cors({
-    origin: env.isDev ? '*' : ['https://gymos.in'],
-    credentials: true,
-  })
-);
+// ── Rate limiting ──
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { success: false, message: 'Too many requests, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
-// Rate limiting
-app.use(globalLimiter);
+const otpLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  message: { success: false, message: 'Too many OTP requests, please wait 10 minutes' },
+});
 
-// Compression
-app.use(compression());
+// app.use('/api/v1/auth/otp', otpLimiter);
+app.use('/api/', limiter);
 
-// Body parsing
+// ── Body parsing ──
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// HTTP request logging
-if (env.isDev) {
-  app.use(morgan('dev'));
+// ── Logging ──
+if (process.env.NODE_ENV !== 'test') {
+  app.use(morgan('combined', {
+    stream: { write: (message) => logger.info(message.trim()) },
+  }));
 }
 
-// API routes
-app.use('/api/v1', routes);
+// ── Health check — PUBLIC, no auth required ──
+app.get('/api/v1/health', (_req, res) => {
+  res.json({
+    success:   true,
+    message:   'GymOS API is running',
+    version:   '1.0.0',
+    timestamp: new Date().toISOString(),
+  });
+});
 
-// Error handling — must be LAST
+// ── All other routes ──
+app.use('/api/v1', router);
+
+// ── 404 handler — MUST be after all routes ──
 app.use(notFoundHandler);
+
+// ── Global error handler — MUST be last ──
 app.use(errorHandler);
 
 export default app;

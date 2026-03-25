@@ -2,8 +2,8 @@ import { Request, Response } from 'express';
 import { gymService } from '../services/gym.service';
 import { ApiResponse } from '../utils/ApiResponse';
 
-// Safe query/param helpers
-const getParamString = (value: unknown): string => {
+// Safe param extraction — handles string | string[] | undefined
+const p = (value: unknown): string => {
   if (Array.isArray(value)) return value[0]?.toString().trim() || '';
   return value?.toString().trim() || '';
 };
@@ -20,49 +20,39 @@ export const gymController = {
     new ApiResponse(200, 'Gym fetched', gym).send(res);
   },
 
-  // Fixed: Proper typing + safe param extraction
-  updateGym: async (req: Request<{ gymId: string | string[] }>, res: Response) => {
-    const gymId = getParamString(req.params.gymId);
-    const gym = await gymService.updateGym(gymId, req.body);
+  updateGym: async (req: Request, res: Response) => {
+    const gym = await gymService.updateGym(p(req.params.gymId), req.body);
     new ApiResponse(200, 'Gym updated', gym).send(res);
   },
 
-  completeSetup: async (req: Request<{ gymId: string | string[] }>, res: Response) => {
-    const gymId = getParamString(req.params.gymId);
-    const gym = await gymService.completeSetup(gymId);
+  completeSetup: async (req: Request, res: Response) => {
+    const gym = await gymService.completeSetup(p(req.params.gymId));
     new ApiResponse(200, 'Setup complete', gym).send(res);
   },
 
-  getPlans: async (req: Request<{ gymId: string | string[] }>, res: Response) => {
-    const gymId = getParamString(req.params.gymId);
-    const plans = await gymService.getAllPlans(gymId);
+  getPlans: async (req: Request, res: Response) => {
+    const plans = await gymService.getAllPlans(p(req.params.gymId));
     new ApiResponse(200, 'Plans fetched', plans).send(res);
   },
 
-  createPlan: async (req: Request<{ gymId: string | string[] }>, res: Response) => {
-    const gymId = getParamString(req.params.gymId);
-    const plan = await gymService.createPlan(gymId, req.body);
+  createPlan: async (req: Request, res: Response) => {
+    const plan = await gymService.createPlan(p(req.params.gymId), req.body);
     new ApiResponse(201, 'Plan created', plan).send(res);
   },
 
-  updatePlan: async (req: Request<{ gymId: string | string[]; planId: string | string[] }>, res: Response) => {
-    const gymId = getParamString(req.params.gymId);
-    const planId = getParamString(req.params.planId);
-    const plan = await gymService.updatePlan(gymId, planId, req.body);
+  updatePlan: async (req: Request, res: Response) => {
+    const plan = await gymService.updatePlan(p(req.params.gymId), p(req.params.planId), req.body);
     new ApiResponse(200, 'Plan updated', plan).send(res);
   },
 
-  deletePlan: async (req: Request<{ gymId: string | string[]; planId: string | string[] }>, res: Response) => {
-    const gymId = getParamString(req.params.gymId);
-    const planId = getParamString(req.params.planId);
-    await gymService.deletePlan(gymId, planId);
+  deletePlan: async (req: Request, res: Response) => {
+    await gymService.deletePlan(p(req.params.gymId), p(req.params.planId));
     new ApiResponse(200, 'Plan removed').send(res);
   },
 
-  seedDefaultPlans: async (req: Request<{ gymId: string | string[] }>, res: Response) => {
-    const gymId = getParamString(req.params.gymId);
-    await gymService.seedDefaultPlans(gymId);
-    const plans = await gymService.getAllPlans(gymId);
+  seedDefaultPlans: async (req: Request, res: Response) => {
+    await gymService.seedDefaultPlans(p(req.params.gymId));
+    const plans = await gymService.getAllPlans(p(req.params.gymId));
     new ApiResponse(200, 'Default plans added', plans).send(res);
   },
 };

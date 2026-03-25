@@ -1,21 +1,23 @@
-export class ApiResponse<T> {
-  public success: boolean;
-  public statusCode: number;
-  public message: string;
-  public data: T | null;
+import { Response } from 'express';
 
-  constructor(statusCode: number, message: string, data: T | null = null) {
+export class ApiResponse {
+  success: boolean;
+  message: string;
+  data?: any;
+  statusCode: number;
+
+  constructor(statusCode: number, message: string, data?: any) {
     this.statusCode = statusCode;
-    this.success = statusCode >= 200 && statusCode < 300;
-    this.message = message;
-    this.data = data;
+    this.success    = statusCode < 400;
+    this.message    = message;
+    this.data       = data;
   }
 
-  send(res: any): any {
+  send(res: Response) {
     return res.status(this.statusCode).json({
       success: this.success,
       message: this.message,
-      data: this.data,
+      data:    this.data,
     });
   }
 }

@@ -1,4 +1,5 @@
 import { Gym } from '../models/Gym.model';
+import { User } from '../models/User.model';
 import { MembershipPlan } from '../models/MembershipPlan.model';
 import { ApiError } from '../utils/ApiError';
 
@@ -12,26 +13,29 @@ export const gymService = {
     name: string; phone?: string; address?: string; city?: string; gstin?: string;
   }) {
     const existing = await Gym.findOne({ ownerId });
-    if (existing) return existing; // already has a gym
+    if (existing) return existing;
 
     const trialEndsAt = new Date();
-    trialEndsAt.setDate(trialEndsAt.getDate() + 30); // 30 day trial
+    trialEndsAt.setDate(trialEndsAt.getDate() + 30);
 
     const gym = await Gym.create({
       ...data,
       ownerId,
-      slug: slugify(data.name),
-      planTier: 'starter',
-      planStatus: 'trial',
+      slug:            slugify(data.name),
+      planTier:        'starter',
+      planStatus:      'trial',
       trialEndsAt,
       isSetupComplete: false,
     });
+
+    // ── Auto-upgrade user role to gym_owner ──
+    await User.findByIdAndUpdate(ownerId, { systemRole: 'gym_owner' });
+
     return gym;
   },
 
   async getMyGym(ownerId: string) {
-    const gym = await Gym.findOne({ ownerId });
-    return gym;
+    return Gym.findOne({ ownerId });
   },
 
   async getGymById(gymId: string) {
@@ -53,7 +57,6 @@ export const gymService = {
     return this.updateGym(gymId, { isSetupComplete: true });
   },
 
-  // ── Plans ──
   async getPlans(gymId: string) {
     return MembershipPlan.find({ gymId, isActive: true }).sort({ sortOrder: 1, price: 1 });
   },
@@ -89,13 +92,13 @@ export const gymService = {
 
   async seedDefaultPlans(gymId: string) {
     const defaults = [
-      { name: 'Monthly',    durationDays: 30,  price: 999,   sortOrder: 0 },
-      { name: 'Quarterly',  durationDays: 90,  price: 2499,  sortOrder: 1 },
-      { name: 'Half Yearly',durationDays: 180, price: 4499,  sortOrder: 2 },
-      { name: 'Annual',     durationDays: 365, price: 7999,  sortOrder: 3 },
+      { name: 'Monthly',     durationDays: 30,  price: 999,  sortOrder: 0 },
+      { name: 'Quarterly',   durationDays: 90,  price: 2499, sortOrder: 1 },
+      { name: 'Half Yearly', durationDays: 180, price: 4499, sortOrder: 2 },
+      { name: 'Annual',      durationDays: 365, price: 7999, sortOrder: 3 },
     ];
     const existing = await MembershipPlan.countDocuments({ gymId });
-    if (existing > 0) return; // already has plans
+    if (existing > 0) return;
     await MembershipPlan.insertMany(defaults.map(p => ({ ...p, gymId })));
   },
 };

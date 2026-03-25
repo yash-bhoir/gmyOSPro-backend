@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ApiError } from '../utils/ApiError';
 import { logger } from '../config/logger';
+import { env } from '../config/env';
 
 export const errorHandler = (
   err: any,
@@ -30,9 +31,15 @@ export const errorHandler = (
     return;
   }
 
+  // Mongoose cast error (invalid ObjectId)
+  if (err.name === 'CastError') {
+    res.status(400).json({ success: false, message: 'Invalid ID format', errors: [] });
+    return;
+  }
+
   // Duplicate key error
   if (err.code === 11000) {
-    const field = Object.keys(err.keyValue)[0];
+    const field = Object.keys(err.keyValue || {})[0] || 'field';
     res.status(409).json({ success: false, message: `${field} already exists`, errors: [] });
     return;
   }
@@ -46,9 +53,6 @@ export const errorHandler = (
   // Fallback
   res.status(500).json({ success: false, message: 'Internal server error', errors: [] });
 };
-
-// Fix: import env for stack trace conditional
-import { env } from '../config/env';
 
 export const notFoundHandler = (req: Request, _res: Response, next: NextFunction) => {
   next(ApiError.notFound(`Route ${req.originalUrl} not found`));

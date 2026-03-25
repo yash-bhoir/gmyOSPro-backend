@@ -7,6 +7,8 @@ const required = (key: string): string => {
   return val;
 };
 
+const optional = (key: string): string | undefined => process.env[key];
+
 export const env = {
   NODE_ENV:               process.env.NODE_ENV || 'development',
   PORT:                   parseInt(process.env.PORT || '5000'),
@@ -19,6 +21,11 @@ export const env = {
   OTP_EXPIRY_MINUTES:     parseInt(process.env.OTP_EXPIRY_MINUTES || '10'),
   RATE_LIMIT_WINDOW_MS:   parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'),
   RATE_LIMIT_MAX:         parseInt(process.env.RATE_LIMIT_MAX || '100'),
+  MSG91_AUTH_KEY:         optional('MSG91_AUTH_KEY'),
+  MSG91_TEMPLATE_ID:      optional('MSG91_TEMPLATE_ID'),
+  MSG91_SENDER_ID:        optional('MSG91_SENDER_ID') || 'GYMOSS',
+  RAZORPAY_KEY_ID:        optional('RAZORPAY_KEY_ID'),
+  RAZORPAY_KEY_SECRET:    optional('RAZORPAY_KEY_SECRET'),
   isDev:  process.env.NODE_ENV === 'development',
   isProd: process.env.NODE_ENV === 'production',
 };
