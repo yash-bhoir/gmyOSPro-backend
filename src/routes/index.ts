@@ -7,6 +7,7 @@ import analyticsRoutes    from './analytics.routes';
 import notificationRoutes from './notification.routes';
 import staffRoutes        from './staff.routes';
 import adminRoutes        from './admin.routes';
+import classRoutes from './class.routes';
 
 const router = Router();
 
@@ -18,6 +19,8 @@ router.use('/',     analyticsRoutes);
 router.use('/',     notificationRoutes);
 router.use('/',     staffRoutes);
 router.use('/',     adminRoutes);
+router.use('/',     classRoutes);
+
 
 
 export default router;

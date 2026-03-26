@@ -38,8 +38,8 @@ export const adminService = {
     ]);
 
     return {
-      gyms:     { total: totalGyms, active: activeGyms, trial: trialGyms, suspended: suspendedGyms },
-      members:  { total: totalMembers, active: activeMembers },
+      gyms:    { total: totalGyms, active: activeGyms, trial: trialGyms, suspended: suspendedGyms },
+      members: { total: totalMembers, active: activeMembers },
       revenue: {
         total:     totalRevenue[0]?.total     ?? 0,
         thisMonth: thisMonthRevenue[0]?.total ?? 0,
@@ -121,26 +121,45 @@ export const adminService = {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
       const year = d.getFullYear(), month = d.getMonth() + 1;
-      const found = data.find(r => r._id.year === year && r._id.month === month);
-      months.push({ label: d.toLocaleString('en-IN', { month: 'short', year: '2-digit' }), revenue: found?.revenue ?? 0, count: found?.count ?? 0 });
+      const found = data.find((r: any) => r._id.year === year && r._id.month === month);
+      months.push({
+        label:   d.toLocaleString('en-IN', { month: 'short', year: '2-digit' }),
+        revenue: found?.revenue ?? 0,
+        count:   found?.count   ?? 0,
+      });
     }
     return months;
   },
 
-  // ── Get all users ──
-  async getAllUsers(search?: string) {
+  // ── Get ALL users — no role filter on empty, high limit ──
+  async getAllUsers(params: { search?: string; page?: number; limit?: number; role?: string }) {
+    const { search, page = 1, limit = 500, role } = params;
+
     const query: any = {};
-    if (search) {
+
+    // Only filter by role if explicitly provided
+    if (role && role.trim().length > 0) {
+      query.systemRole = role.trim();
+    }
+
+    // Only search if non-empty string
+    if (search && search.trim().length > 0) {
       query.$or = [
-        { phone: { $regex: search } },
-        { fullName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
+        { phone:    { $regex: search.trim() } },
+        { fullName: { $regex: search.trim(), $options: 'i' } },
+        { email:    { $regex: search.trim(), $options: 'i' } },
       ];
     }
-    return User.find(query).sort({ createdAt: -1 }).limit(100);
+
+    const [items, total] = await Promise.all([
+      User.find(query).sort({ systemRole: 1, createdAt: -1 }).skip((page - 1) * limit).limit(limit),
+      User.countDocuments(query),
+    ]);
+
+    return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
   },
 
-  // ── Create user (admin can create any user with any role) ──
+  // ── Create user ──
   async createUser(data: {
     phone: string;
     fullName: string;
@@ -149,75 +168,50 @@ export const adminService = {
   }) {
     const existing = await User.findOne({ phone: data.phone });
     if (existing) throw ApiError.badRequest('A user with this phone number already exists');
-
-    const user = await User.create({
-      phone:      data.phone,
-      fullName:   data.fullName,
-      email:      data.email,
-      systemRole: data.systemRole,
-    });
-    return user;
+    return User.create({ phone: data.phone, fullName: data.fullName, email: data.email, systemRole: data.systemRole });
   },
 
   // ── Update user role ──
-  async updateUserRole(userId: string, systemRole: 'super_admin' | 'gym_owner' | 'staff' | 'member') {
-    const user = await User.findByIdAndUpdate(userId, { systemRole }, { new: true });
-    if (!user) throw ApiError.notFound('User not found');
-    return user;
-  },
-
-  // ── Delete user ──
+async updateUserRole(userId: string, systemRole?: string, isActive?: boolean) {
+  const update: any = {};
+  if (systemRole !== undefined) update.systemRole = systemRole;
+  if (isActive   !== undefined) update.isActive   = isActive;
+  const user = await User.findByIdAndUpdate(userId, update, { new: true });
+  if (!user) throw ApiError.notFound('User not found');
+  return user;
+},
+  // ── Deactivate user ──
   async deleteUser(userId: string) {
     const user = await User.findByIdAndUpdate(userId, { isActive: false }, { new: true });
     if (!user) throw ApiError.notFound('User not found');
     return user;
   },
 
-  // ── Create gym owner (admin creates gym + assigns owner) ──
+  // ── Create gym owner + gym in one shot ──
   async createGymOwner(data: {
-    phone: string;
-    fullName: string;
-    email?: string;
-    gymName: string;
-    city: string;
-    gymPhone?: string;
-    address?: string;
+    phone: string; fullName: string; email?: string;
+    gymName: string; city: string; gymPhone?: string; address?: string;
   }) {
-    // Create or find user
     let user = await User.findOne({ phone: data.phone });
     if (!user) {
-      user = await User.create({
-        phone:      data.phone,
-        fullName:   data.fullName,
-        email:      data.email,
-        systemRole: 'gym_owner',
-      });
+      user = await User.create({ phone: data.phone, fullName: data.fullName, email: data.email, systemRole: 'gym_owner' });
     } else {
       user.systemRole = 'gym_owner';
       user.fullName   = data.fullName;
       await user.save();
     }
 
-    // Check if already has a gym
     const existingGym = await Gym.findOne({ ownerId: user._id });
     if (existingGym) throw ApiError.badRequest('This user already owns a gym');
 
-    // Create gym
     const slug        = data.gymName.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Math.random().toString(36).slice(2, 6);
     const trialEndsAt = new Date();
     trialEndsAt.setDate(trialEndsAt.getDate() + 30);
 
     const gym = await Gym.create({
-      name:            data.gymName,
-      slug,
-      ownerId:         user._id,
-      city:            data.city,
-      phone:           data.gymPhone,
-      address:         data.address,
-      planTier:        'starter',
-      planStatus:      'trial',
-      trialEndsAt,
-      isSetupComplete: false,
+      name: data.gymName, slug, ownerId: user._id,
+      city: data.city, phone: data.gymPhone, address: data.address,
+      planTier: 'starter', planStatus: 'trial', trialEndsAt, isSetupComplete: false,
     });
 
     return { user, gym };
@@ -225,21 +219,15 @@ export const adminService = {
 
   // ── Assign staff role to user for a gym ──
   async assignStaffRole(data: {
-    userId: string;
-    gymId: string;
+    userId: string; gymId: string;
     role: 'manager' | 'trainer' | 'front_desk' | 'accounts';
   }) {
-    const [user, gym] = await Promise.all([
-      User.findById(data.userId),
-      Gym.findById(data.gymId),
-    ]);
+    const [user, gym] = await Promise.all([User.findById(data.userId), Gym.findById(data.gymId)]);
     if (!user) throw ApiError.notFound('User not found');
     if (!gym)  throw ApiError.notFound('Gym not found');
 
-    // Update user role
     await User.findByIdAndUpdate(data.userId, { systemRole: 'staff' });
 
-    // Create or update staff member
     const existing = await StaffMember.findOne({ userId: oid(data.userId), gymId: oid(data.gymId) });
     if (existing) {
       existing.role        = data.role;
@@ -250,10 +238,13 @@ export const adminService = {
     }
 
     return StaffMember.create({
-      gymId:       oid(data.gymId),
-      userId:      oid(data.userId),
-      role:        data.role,
-      permissions: ROLE_PERMISSIONS[data.role],
+      gymId: oid(data.gymId), userId: oid(data.userId),
+      role: data.role, permissions: ROLE_PERMISSIONS[data.role],
     });
+  },
+
+  // ── Get all users (simple, for super admin) ──
+  async getAllUsersSimple() {
+    return User.find({}).sort({ systemRole: 1, createdAt: -1 });
   },
 };

@@ -41,8 +41,14 @@ export const adminController = {
   },
 
   getAllUsers: async (req: Request, res: Response) => {
-    const users = await adminService.getAllUsers(req.query.search as string);
-    new ApiResponse(200, 'Users fetched', users).send(res);
+    const { search, page, limit, role } = req.query;
+    const result = await adminService.getAllUsers({
+      search: search as string,
+      page:   page  ? parseInt(page  as string) : 1,
+      limit:  limit ? parseInt(limit as string) : 500,
+      role:   role  as string,
+    });
+    new ApiResponse(200, 'Users fetched', result).send(res);
   },
 
   createUser: async (req: Request, res: Response) => {
@@ -51,11 +57,13 @@ export const adminController = {
   },
 
   updateUserRole: async (req: Request, res: Response) => {
+    const { systemRole, isActive } = req.body;
     const user = await adminService.updateUserRole(
       req.params.userId as string,
-      req.body.systemRole
+      systemRole,
+      isActive
     );
-    new ApiResponse(200, 'User role updated', user).send(res);
+    new ApiResponse(200, 'User updated', user).send(res);
   },
 
   deleteUser: async (req: Request, res: Response) => {
