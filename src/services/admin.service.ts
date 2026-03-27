@@ -211,7 +211,7 @@ async updateUserRole(userId: string, systemRole?: string, isActive?: boolean) {
     const gym = await Gym.create({
       name: data.gymName, slug, ownerId: user._id,
       city: data.city, phone: data.gymPhone, address: data.address,
-      planTier: 'starter', planStatus: 'trial', trialEndsAt, isSetupComplete: false,
+      planTier: 'starter', planStatus: 'trial', trialEndsAt, isSetupComplete: true,
     });
 
     return { user, gym };

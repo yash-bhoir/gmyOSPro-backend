@@ -71,8 +71,9 @@ export const memberController = {
       req.params.memberId as string,
       method
     );
+    const status = result.result === 'success' ? 200 : 422;
     new ApiResponse(
-      200,
+      status,
       result.result === 'success' ? 'Check-in successful' : 'Check-in denied',
       result
     ).send(res);

@@ -15,12 +15,51 @@ export interface IStaffMember extends Document {
 }
 
 // What each role can access
+// Permission hierarchy: holding the parent ('members') satisfies any sub-check ('members:read', 'members:add', 'members:edit')
 export const ROLE_PERMISSIONS: Record<StaffRole, string[]> = {
-  owner:      ['*'],  // full access
-  manager:    ['dashboard','members','billing','reports','plans','checkin','classes','notifications'],
-  trainer:    ['dashboard','members:read','checkin','classes'],
-  front_desk: ['dashboard','members:read','checkin','billing:collect'],
-  accounts:   ['dashboard','billing','reports','invoices'],
+  owner: ['*'],  // full access
+
+  // manager: everything EXCEPT edit gym, edit/delete plans, manage staff
+  manager: [
+    'dashboard',
+    'members',          // full member access: view + add + edit
+    'billing',          // full billing: view invoices + create + record payment
+    'reports',          // analytics / reports
+    'plans:read',       // view plans only — owner edits plans
+    'checkin',
+    'classes',          // create / update / cancel classes
+    'notifications',    // broadcast
+  ],
+
+  // trainer: view members, check-in, manage classes, view plans
+  trainer: [
+    'dashboard',
+    'members:read',     // view members only
+    'checkin',
+    'classes',          // create / update / cancel classes
+    'plans:read',
+  ],
+
+  // front_desk: view + add members, check-in, billing (create + record), view plans, classes
+  front_desk: [
+    'dashboard',
+    'members:read',     // view members
+    'members:add',      // add new members
+    'checkin',
+    'billing:read',     // view invoices
+    'billing:collect',  // create invoice + record payment
+    'plans:read',
+    'classes',          // create / update / cancel classes
+  ],
+
+  // accounts: billing + reports + view plans + classes
+  accounts: [
+    'dashboard',
+    'billing',          // full billing access
+    'reports',          // analytics / reports
+    'plans:read',
+    'classes',          // create / update / cancel classes
+  ],
 };
 
 const StaffMemberSchema = new Schema<IStaffMember>(

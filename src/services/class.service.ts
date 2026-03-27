@@ -1,4 +1,5 @@
 import { Class } from '../models/Class.model';
+import { Member } from '../models/Member.model';
 import { ApiError } from '../utils/ApiError';
 import mongoose from 'mongoose';
 
@@ -96,7 +97,9 @@ export const classService = {
   },
 
   async getMyClasses(userId: string) {
-    return Class.find({ enrolled: oid(userId), status: 'active' })
-      .sort({ startTime: 1 });
+    const member = await Member.findOne({ userId, isActive: true });
+    const query: any = { enrolled: oid(userId), status: 'active' };
+    if (member) query.gymId = member.gymId;
+    return Class.find(query).sort({ startTime: 1 });
   },
 };

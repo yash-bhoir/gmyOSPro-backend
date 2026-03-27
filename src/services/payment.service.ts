@@ -66,16 +66,16 @@ export const paymentService = {
     );
     if (!invoice) throw ApiError.notFound('Invoice not found');
 
-    // Extend member plan
+    // Extend member plan — validate member belongs to same gym
     if (data.extendDays && invoice.memberId) {
-      const member = await Member.findById(invoice.memberId);
+      const member = await Member.findOne({ _id: invoice.memberId, gymId });
       if (member) {
         const base = member.planEndDate && member.planEndDate > new Date()
           ? member.planEndDate
           : new Date();
         const newEnd = new Date(base);
         newEnd.setDate(newEnd.getDate() + data.extendDays);
-        await Member.findByIdAndUpdate(invoice.memberId, {
+        await Member.findOneAndUpdate({ _id: invoice.memberId, gymId }, {
           status:      'active',
           planEndDate: newEnd,
           planName:    invoice.planName,
@@ -180,14 +180,14 @@ export const paymentService = {
     );
     if (!invoice) throw ApiError.notFound('Invoice not found');
 
-    // Extend member plan
-    const member = await Member.findById(invoice.memberId);
+    // Extend member plan — validate member belongs to same gym
+    const member = await Member.findOne({ _id: invoice.memberId, gymId });
     if (member) {
       const base = member.planEndDate && member.planEndDate > new Date()
         ? member.planEndDate : new Date();
       const newEnd = new Date(base);
       newEnd.setDate(newEnd.getDate() + data.extendDays);
-      await Member.findByIdAndUpdate(invoice.memberId, {
+      await Member.findOneAndUpdate({ _id: invoice.memberId, gymId }, {
         status:      'active',
         planEndDate: newEnd,
         planName:    invoice.planName,
@@ -215,11 +215,11 @@ export const paymentService = {
     return { items, total, page, totalPages: Math.ceil(total / limit) };
   },
 
-  // ── Get member's invoices ──
+  // ── Get member's invoices (scoped to their gym) ──
   async getMemberInvoices(userId: string) {
-    const member = await Member.findOne({ userId });
+    const member = await Member.findOne({ userId, isActive: true });
     if (!member) return [];
-    return Invoice.find({ memberId: member._id }).sort({ createdAt: -1 }).limit(20);
+    return Invoice.find({ memberId: member._id, gymId: member.gymId }).sort({ createdAt: -1 }).limit(20);
   },
 
   // ── Revenue stats ──

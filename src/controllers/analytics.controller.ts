@@ -25,7 +25,8 @@ export const analyticsController = {
   },
 
   expiringMembers: async (req: Request, res: Response) => {
-    const days = req.query.days ? parseInt(req.query.days as string) : 30;
+    const parsed = parseInt(req.query.days as string, 10);
+    const days = Number.isFinite(parsed) && parsed > 0 && parsed <= 365 ? parsed : 30;
     const data = await analyticsService.expiringMembers(req.params.gymId as string, days);
     new ApiResponse(200, 'Expiring members fetched', data).send(res);
   },

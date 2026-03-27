@@ -148,4 +148,35 @@ export const v = {
     planTier: Joi.string().valid('starter','growth','enterprise').required()
                .messages({ 'any.required': 'Plan tier is required', 'any.only': 'Invalid plan tier' }),
   }),
+
+  createUser: Joi.object({
+    phone:      phone.required().messages({ 'any.required': 'Phone number is required' }),
+    fullName:   Joi.string().min(2).max(100).required().messages({ 'any.required': 'Full name is required' }),
+    email:      Joi.string().email().optional().allow(''),
+    systemRole: Joi.string().valid('super_admin','gym_owner','staff','member').required()
+                 .messages({ 'any.required': 'System role is required', 'any.only': 'Invalid system role' }),
+  }),
+
+  updateUserRole: Joi.object({
+    systemRole: Joi.string().valid('super_admin','gym_owner','staff','member').optional()
+                 .messages({ 'any.only': 'Invalid system role' }),
+    isActive:   Joi.boolean().optional(),
+  }).or('systemRole', 'isActive').messages({ 'object.missing': 'Provide systemRole or isActive' }),
+
+  createGymOwner: Joi.object({
+    phone:    phone.required().messages({ 'any.required': 'Phone number is required' }),
+    fullName: Joi.string().min(2).max(100).required().messages({ 'any.required': 'Owner name is required' }),
+    email:    Joi.string().email().optional().allow(''),
+    gymName:  Joi.string().min(2).max(100).required().messages({ 'any.required': 'Gym name is required' }),
+    city:     Joi.string().min(2).max(100).optional().allow(''),
+    gymPhone: Joi.string().pattern(/^\d{10}$/).optional().allow(''),
+    address:  Joi.string().max(300).optional().allow(''),
+  }),
+
+  assignStaffRole: Joi.object({
+    userId: objectId.required().messages({ 'any.required': 'User ID is required' }),
+    gymId:  objectId.required().messages({ 'any.required': 'Gym ID is required' }),
+    role:   Joi.string().valid('manager','trainer','front_desk','accounts').required()
+             .messages({ 'any.required': 'Role is required', 'any.only': 'Invalid role' }),
+  }),
 };

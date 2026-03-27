@@ -1,20 +1,49 @@
 import { Router } from 'express';
 import { classController } from '../controllers/class.controller';
 import { authenticate } from '../middleware/auth.middleware';
+import { requireGymAccess, requirePermission } from '../middleware/gym.middleware';
 import { asyncHandler } from '../middleware/asyncHandler';
 
 const router = Router();
 
-// Member self-service
+// ── Member self-service ──
+// Members see classes they are enrolled in (no gymId param needed)
 router.get('/me/classes', authenticate, asyncHandler(classController.getMyClasses));
 
-// Gym routes
-router.get   ('/gyms/:gymId/classes',                      authenticate, asyncHandler(classController.getAll));
-router.post  ('/gyms/:gymId/classes',                      authenticate, asyncHandler(classController.create));
-router.get   ('/gyms/:gymId/classes/:classId',             authenticate, asyncHandler(classController.getById));
-router.put   ('/gyms/:gymId/classes/:classId',             authenticate, asyncHandler(classController.update));
-router.delete('/gyms/:gymId/classes/:classId',             authenticate, asyncHandler(classController.cancel));
-router.post  ('/gyms/:gymId/classes/:classId/enroll',      authenticate, asyncHandler(classController.enroll));
-router.delete('/gyms/:gymId/classes/:classId/enroll',      authenticate, asyncHandler(classController.unenroll));
+// ── Gym routes ──
+
+// View all classes — any gym staff (and members browsing via gymId)
+router.get   ('/gyms/:gymId/classes',
+  authenticate, requireGymAccess,
+  asyncHandler(classController.getAll));
+
+// View single class — any gym staff
+router.get   ('/gyms/:gymId/classes/:classId',
+  authenticate, requireGymAccess,
+  asyncHandler(classController.getById));
+
+// Create class — owner, manager, trainer (have 'classes')
+router.post  ('/gyms/:gymId/classes',
+  authenticate, requireGymAccess, requirePermission('classes'),
+  asyncHandler(classController.create));
+
+// Update class — owner, manager, trainer
+router.put   ('/gyms/:gymId/classes/:classId',
+  authenticate, requireGymAccess, requirePermission('classes'),
+  asyncHandler(classController.update));
+
+// Cancel class — owner, manager, trainer
+router.delete('/gyms/:gymId/classes/:classId',
+  authenticate, requireGymAccess, requirePermission('classes'),
+  asyncHandler(classController.cancel));
+
+// Enroll / unenroll — any authenticated user (members enroll themselves)
+router.post  ('/gyms/:gymId/classes/:classId/enroll',
+  authenticate, requireGymAccess,
+  asyncHandler(classController.enroll));
+
+router.delete('/gyms/:gymId/classes/:classId/enroll',
+  authenticate, requireGymAccess,
+  asyncHandler(classController.unenroll));
 
 export default router;

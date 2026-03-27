@@ -6,30 +6,34 @@ import { validate } from '../middleware/validate.middleware';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { v } from '../validators';
 
+// Sub-router: authenticate + requireSuperAdmin applied only to /admin/* paths
+const adminRouter = Router();
+adminRouter.use(authenticate, requireSuperAdmin);
+
+// ── Stats & Revenue ──
+adminRouter.get  ('/stats',   asyncHandler(adminController.getStats));
+adminRouter.get  ('/revenue', asyncHandler(adminController.getRevenueByMonth));
+
+// ── Gym management ──
+adminRouter.get  ('/gyms',                asyncHandler(adminController.getAllGyms));
+adminRouter.get  ('/gyms/:gymId',         asyncHandler(adminController.getGymDetail));
+adminRouter.patch('/gyms/:gymId/status',  validate(v.updateGymStatus), asyncHandler(adminController.updateGymStatus));
+adminRouter.patch('/gyms/:gymId/plan',    validate(v.updateGymPlan),   asyncHandler(adminController.updateGymPlan));
+
+// ── User management ──
+adminRouter.get   ('/users',              asyncHandler(adminController.getAllUsers));
+adminRouter.post  ('/users',              validate(v.createUser),      asyncHandler(adminController.createUser));
+adminRouter.patch ('/users/:userId/role', validate(v.updateUserRole),  asyncHandler(adminController.updateUserRole));
+adminRouter.delete('/users/:userId',      asyncHandler(adminController.deleteUser));
+
+// ── Create gym owner (user + gym in one shot) ──
+adminRouter.post('/gym-owners',   validate(v.createGymOwner),   asyncHandler(adminController.createGymOwner));
+
+// ── Assign staff role to user for a gym ──
+adminRouter.post('/assign-role',  validate(v.assignStaffRole),  asyncHandler(adminController.assignStaffRole));
+
+// Mount under /admin so middleware only runs for /admin/* requests
 const router = Router();
-
-router.use(authenticate, requireSuperAdmin);
-
-// Stats & Revenue
-router.get  ('/admin/stats',                asyncHandler(adminController.getStats));
-router.get  ('/admin/revenue',              asyncHandler(adminController.getRevenueByMonth));
-
-// Gym management
-router.get  ('/admin/gyms',                 asyncHandler(adminController.getAllGyms));
-router.get  ('/admin/gyms/:gymId',          asyncHandler(adminController.getGymDetail));
-router.patch('/admin/gyms/:gymId/status',   validate(v.updateGymStatus), asyncHandler(adminController.updateGymStatus));
-router.patch('/admin/gyms/:gymId/plan',     validate(v.updateGymPlan),   asyncHandler(adminController.updateGymPlan));
-
-// User management
-router.get  ('/admin/users',                asyncHandler(adminController.getAllUsers));
-router.post ('/admin/users',                asyncHandler(adminController.createUser));
-router.patch('/admin/users/:userId/role',   asyncHandler(adminController.updateUserRole));
-router.delete('/admin/users/:userId',       asyncHandler(adminController.deleteUser));
-
-// Create gym owner (creates user + gym in one shot)
-router.post ('/admin/gym-owners',           asyncHandler(adminController.createGymOwner));
-
-// Assign staff role to user for a gym
-router.post ('/admin/assign-role',          asyncHandler(adminController.assignStaffRole));
+router.use('/admin', adminRouter);
 
 export default router;

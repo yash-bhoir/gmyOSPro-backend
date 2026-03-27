@@ -45,7 +45,7 @@ export const adminController = {
     const result = await adminService.getAllUsers({
       search: search as string,
       page:   page  ? parseInt(page  as string) : 1,
-      limit:  limit ? parseInt(limit as string) : 500,
+      limit:  limit ? parseInt(limit as string) : 20,
       role:   role  as string,
     });
     new ApiResponse(200, 'Users fetched', result).send(res);
