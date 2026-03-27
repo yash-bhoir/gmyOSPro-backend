@@ -2,46 +2,61 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 import router from './routes';
 import { logger } from './config/logger';
+import { env } from './config/env';
 
 const app = express();
 
 // ── Security ──
 app.use(helmet());
+app.set('trust proxy', 1);
+
+// ── CORS ──
+const allowedOrigins = env.isDev
+  ? '*'
+  : ['https://gymos.in', 'https://www.gymos.in', 'https://app.gymos.in'];
+
 app.use(cors({
-  origin: '*',
+  origin: allowedOrigins,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: !env.isDev,
 }));
+
+// ── Compression ──
+app.use(compression());
 
 // ── Rate limiting ──
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: { success: false, message: 'Too many requests, please try again later' },
+  windowMs: env.RATE_LIMIT_WINDOW_MS,
+  max:      env.RATE_LIMIT_MAX,
+  message:  { success: false, message: 'Too many requests, please try again later' },
   standardHeaders: true,
-  legacyHeaders: false,
+  legacyHeaders:   false,
 });
 
 const otpLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
-  max: 5,
+  max: env.isDev ? 100 : 5,
   message: { success: false, message: 'Too many OTP requests, please wait 10 minutes' },
+  standardHeaders: true,
+  legacyHeaders:   false,
 });
 
-// app.use('/api/v1/auth/otp', otpLimiter);
 app.use('/api/', limiter);
+app.use('/api/v1/auth/otp', otpLimiter);
 
 // ── Body parsing ──
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
 // ── Logging ──
 if (process.env.NODE_ENV !== 'test') {
-  app.use(morgan('combined', {
+  app.use(morgan(env.isDev ? 'dev' : 'combined', {
     stream: { write: (message) => logger.info(message.trim()) },
   }));
 }
@@ -52,6 +67,7 @@ app.get('/api/v1/health', (_req, res) => {
     success:   true,
     message:   'GymOS API is running',
     version:   '1.0.0',
+    env:       env.NODE_ENV,
     timestamp: new Date().toISOString(),
   });
 });
