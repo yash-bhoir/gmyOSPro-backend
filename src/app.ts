@@ -16,15 +16,21 @@ app.use(helmet());
 app.set('trust proxy', 1);
 
 // ── CORS ──
-const allowedOrigins = env.isDev
-  ? '*'
-  : ['https://gymos.in', 'https://www.gymos.in', 'https://app.gymos.in'];
+const webOrigins = ['https://gymos.in', 'https://www.gymos.in', 'https://app.gymos.in'];
 
 app.use(cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    // Allow all origins in dev
+    if (env.isDev) return callback(null, true);
+    // Allow known web origins in prod
+    if (webOrigins.includes(origin)) return callback(null, true);
+    callback(new Error('Not allowed by CORS'));
+  },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: !env.isDev,
+  credentials: true,
 }));
 
 // ── Compression ──
