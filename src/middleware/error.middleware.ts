@@ -50,6 +50,12 @@ export const errorHandler = (
     return;
   }
 
+  // MongoDB / network errors
+  if (err.name?.startsWith('Mongo') || err.name === 'MongoServerError' || err.name === 'MongoNetworkError') {
+    res.status(503).json({ success: false, message: 'Database temporarily unavailable. Please try again.', errors: [] });
+    return;
+  }
+
   // Fallback
   res.status(500).json({ success: false, message: 'Internal server error', errors: [] });
 };
